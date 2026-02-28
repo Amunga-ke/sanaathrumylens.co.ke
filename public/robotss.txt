@@ -1,0 +1,82 @@
+# https://www.sanaathrumylens.co.ke/robots.txt
+User-agent: *
+Allow: /
+
+# Disallow admin/dashboard areas
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /api/private/
+Disallow: /auth/
+
+# Next.js specific paths
+Disallow: /_next/static/
+Disallow: /_next/data/
+Disallow: /_next/server/
+
+# Allow necessary Next.js assets
+Allow: /_next/static/chunks/
+Allow: /_next/static/css/
+Allow: /_next/static/media/
+Allow: /_next/image/
+
+# Scripts - disallow all scripts except necessary ones
+Disallow: /scripts/
+Allow: /scripts/analytics.js
+Allow: /scripts/gtm.js
+Allow: /scripts/facebook-pixel.js
+
+# Disallow development paths
+Disallow: /__nextjs_original-stack-frame
+Disallow: /__nextjs_launch-editor
+
+# Disallow preview mode
+Disallow: /api/preview
+Disallow: /api/exit-preview
+
+# Disallow search parameters that don't create unique content
+Disallow: /*?*view=
+Disallow: /*?*sort=
+Disallow: /*?*filter=
+
+# Allow pagination
+Allow: /*?page=
+Allow: /*?offset=
+
+# Sitemaps
+Sitemap: https://www.sanaathrumylens.co.ke/sitemap.xml
+
+# Additional search engine directives
+# Crawl-delay: 10
+# Host: www.sanaathrumylens.co.ke
+# Clean-param: ref /blogs/
+# Clean-param: utm_source /blogs/
+
+# For GPTBot (OpenAI)
+User-agent: GPTBot
+Disallow: /
+
+# For CCBot (Common Crawl)
+User-agent: CCBot
+Allow: /
+Crawl-delay: 10
+
+# For Google AdsBot
+User-agent: AdsBot-Google
+Allow: /
+
+# For BingBot
+User-agent: bingbot
+Allow: /
+Crawl-delay: 10
+
+# For YandexBot
+User-agent: YandexBot
+Allow: /
+Clean-param: ref
+Clean-param: utm_source
+Clean-param: utm_medium
+Clean-param: utm_campaign
+
+# For DuckDuckGo Bot
+User-agent: DuckDuckBot
+Allow: /
