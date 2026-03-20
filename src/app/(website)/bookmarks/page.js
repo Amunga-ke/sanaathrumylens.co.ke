@@ -2,7 +2,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { fetchUserBookmarks } from "@/lib/firestore";
+import { fetchUserBookmarks } from "@/lib/db";
 import Link from "next/link";
 import Image from "next/image";
 import { Bookmark, Calendar, Clock, Eye } from "lucide-react";

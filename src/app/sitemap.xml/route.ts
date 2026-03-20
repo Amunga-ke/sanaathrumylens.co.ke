@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server';
-import { fetchPublishedPosts, fetchPublishedEvents } from '@/lib/serverFirestore';
+import { getPosts, getEvents, EventStatus } from '@/lib/db';
 import { SITE_URL } from '../seo/constants';
 
 const MAX_URLS_PER_SITEMAP = 50000;
 
 // In-memory cache for performance
 let sitemapCache = {
-    xml: null,
+    xml: null as string | null,
     timestamp: 0,
     ttl: 1000 * 60 * 10, // 10 minutes
 };
 
 // Escape XML special characters
-const escapeXml = (unsafe) => {
+const escapeXml = (unsafe: string): string => {
     if (typeof unsafe !== 'string') return '';
     return unsafe
         .replace(/&/g, '&amp;')
@@ -23,7 +23,7 @@ const escapeXml = (unsafe) => {
 };
 
 // Helper: ensure valid URLs
-const sanitizeUrl = (url) => {
+const sanitizeUrl = (url: string): string | null => {
     if (!url) return null;
     try {
         return encodeURI(url);
@@ -33,7 +33,7 @@ const sanitizeUrl = (url) => {
 };
 
 // Determine changefreq and priority based on date
-const heuristicsForDate = (isoDate) => {
+const heuristicsForDate = (isoDate: string | Date): { changefreq: string; priority: number } => {
     if (!isoDate) return { changefreq: 'monthly', priority: 0.6 };
     const d = new Date(isoDate);
     if (isNaN(d.getTime())) return { changefreq: 'monthly', priority: 0.6 };
@@ -45,7 +45,7 @@ const heuristicsForDate = (isoDate) => {
 };
 
 // Generate XML entry for a URL
-const generateUrlEntry = (loc, lastmod = null, changefreq = 'weekly', priority = 0.7, images = []) => {
+const generateUrlEntry = (loc: string, lastmod: string | null = null, changefreq = 'weekly', priority = 0.7, images: string[] = []): string => {
     const imgBlock = images
         .map((img) => `\n    <image:image>\n      <image:loc>${escapeXml(img)}</image:loc>\n    </image:image>`)
         .join('');
@@ -53,46 +53,41 @@ const generateUrlEntry = (loc, lastmod = null, changefreq = 'weekly', priority =
 };
 
 // Build sitemap XML
-const buildSitemapXml = (urlEntries) => {
+const buildSitemapXml = (urlEntries: string[]): string => {
     return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${urlEntries.join(
         '\n'
     )}\n</urlset>`;
 };
 
 export async function GET() {
-    // Comment out or remove this debug line to allow Firebase execution
-    // return new NextResponse('Sitemap Route reached!', { status: 200 });
-
     try {
         // Return cached sitemap if valid
         if (sitemapCache.xml && Date.now() - sitemapCache.timestamp < sitemapCache.ttl) {
             return new NextResponse(sitemapCache.xml, { headers: { 'Content-Type': 'application/xml' } });
         }
 
-        // Add a fallback in case Firebase fails
-        let posts = [];
-        let events = [];
+        let posts: any[] = [];
+        let events: any[] = [];
 
         try {
-            // Fetch published posts from Firestore
-            posts = await fetchPublishedPosts(MAX_URLS_PER_SITEMAP);
+            // Fetch published posts from Prisma
+            posts = await getPosts({ limit: MAX_URLS_PER_SITEMAP });
             if (!Array.isArray(posts)) posts = [];
 
-            // Fetch published events from Firestore
-            events = await fetchPublishedEvents(MAX_URLS_PER_SITEMAP);
+            // Fetch published events from Prisma
+            events = await getEvents({ limit: MAX_URLS_PER_SITEMAP, status: EventStatus.PUBLISHED });
             if (!Array.isArray(events)) events = [];
-        } catch (firebaseError) {
-            console.error('Firebase fetch error, using empty arrays:', firebaseError.message);
-            // Continue with empty arrays if Firebase fails
+        } catch (dbError: any) {
+            console.error('Database fetch error, using empty arrays:', dbError?.message);
             posts = [];
             events = [];
         }
 
         // Sort posts newest first
-        posts.sort((a, b) => new Date(b.updatedAt || b.publishedAt) - new Date(a.updatedAt || a.publishedAt));
+        posts.sort((a, b) => new Date(b.updatedAt || b.publishedAt).getTime() - new Date(a.updatedAt || a.publishedAt).getTime());
 
         // Sort events by start date (upcoming first)
-        events.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+        events.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
         // Dynamic URLs for posts
         const dynamicUrls = posts
@@ -108,14 +103,11 @@ export async function GET() {
                 const { changefreq, priority } = heuristicsForDate(lastmod);
 
                 // Support optional images
-                const images = [
-                    post.coverImage?.url || post.coverImage,
-                    post.featuredImage?.url || post.featuredImage
-                ].filter(img => typeof img === 'string');
+                const images = [post.coverImage, post.featuredImage].filter((img): img is string => typeof img === 'string');
 
                 return generateUrlEntry(loc, lastmod, changefreq, priority, images);
             })
-            .filter(Boolean);
+            .filter(Boolean) as string[];
 
         // Dynamic URLs for events
         const eventUrls = events
@@ -131,20 +123,17 @@ export async function GET() {
                 const { changefreq, priority } = heuristicsForDate(lastmod);
 
                 // Support optional images for events
-                const images = [
-                    event.coverImage?.url || event.coverImage,
-                    event.featuredImage?.url || event.featuredImage
-                ].filter(img => typeof img === 'string');
+                const images = [event.coverImage].filter((img): img is string => typeof img === 'string');
 
                 return generateUrlEntry(loc, lastmod, changefreq, 0.8, images);
             })
-            .filter(Boolean);
+            .filter(Boolean) as string[];
 
         // Static URLs
         const staticPages = [
             '/',
             '/blogs',
-            '/events',  // Added events page
+            '/events',
             '/about',
             '/author',
             '/categories',
@@ -164,7 +153,7 @@ export async function GET() {
 
                 return generateUrlEntry(loc, null, 'weekly', priority);
             })
-            .filter(Boolean);
+            .filter(Boolean) as string[];
 
         // Combine all URLs
         const allUrls = [...staticUrls, ...dynamicUrls, ...eventUrls];

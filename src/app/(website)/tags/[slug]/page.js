@@ -1,4 +1,4 @@
-import { fetchPostsByTag } from '@/lib/firestore';
+import { getPostsByTag } from '@/lib/db';
 import { generateTagMetadata } from '@/app/seo/meta';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -8,13 +8,12 @@ export async function generateMetadata({ params }) {
     return generateTagMetadata(slug);
 }
 
-// Helper to serialize Firestore data
+// Helper to serialize data for client
 function serializeForClient(data) {
     if (Array.isArray(data)) return data.map(serializeForClient);
     if (data && typeof data === 'object' && !(data instanceof Date)) {
-        if (data.seconds !== undefined) {
-            const date = new Date(data.seconds * 1000 + (data.nanoseconds || 0) / 1000000);
-            return isNaN(date.getTime()) ? null : date.toISOString();
+        if (data instanceof Date) {
+            return data.toISOString();
         }
         const result = {};
         for (const key in data) {
@@ -35,7 +34,7 @@ export default async function TagPage({ params }) {
     let error = null;
 
     try {
-        articles = await fetchPostsByTag(decodedSlug);
+        articles = await getPostsByTag(decodedSlug, 30);
     } catch (err) {
         console.error('Error fetching articles by tag:', err);
         error = err.message;
@@ -96,7 +95,7 @@ export default async function TagPage({ params }) {
                                             </p>
                                             <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
                                                 <time dateTime={article.publishedAt}>
-                                                    {new Date(article.publishedAt).toLocaleDateString()}
+                                                    {article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : ''}
                                                 </time>
                                                 {article.author?.name && (
                                                     <Link href={`/author/${article.author.slug || article.author.name?.toLowerCase().replace(/\s+/g, '-')}`} className="hover:text-blue-600">

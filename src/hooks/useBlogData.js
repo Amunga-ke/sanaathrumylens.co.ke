@@ -1,127 +1,153 @@
 // src/hooks/useBlogData.js
-import { useState, useEffect } from 'react';
-import * as firestoreService from '@/lib/firestore';
+import { useState, useEffect } from 'react'
+import {
+  fetchBlogPosts,
+  fetchRecentStories,
+  fetchPopularArticles,
+  fetchFeaturedArticle,
+  fetchUpcomingEvents,
+  fetchCategories,
+  subscribeToNewsletter,
+  likePost,
+  unlikePost,
+  checkUserLike,
+  addComment,
+  trackPostView,
+} from '@/lib/db'
+import { useSession } from 'next-auth/react'
 
 export const useBlogData = () => {
-    const [data, setData] = useState({
-        articles: [],
-        recentStories: [],
-        popularArticles: [],
-        featuredArticle: null,
-        upcomingEvents: [],
-        categories: [],
-        loading: true,
-        error: null,
-    });
+  const { data: session } = useSession()
 
-    useEffect(() => {
-        const fetchAllData = async () => {
-            try {
-                setData(prev => ({ ...prev, loading: true, error: null }));
+  const [data, setData] = useState({
+    articles: [],
+    recentStories: [],
+    popularArticles: [],
+    featuredArticle: null,
+    upcomingEvents: [],
+    categories: [],
+    loading: true,
+    error: null,
+  })
 
-                // Fetch all data in parallel
-                const [
-                    articles,
-                    recentStories,
-                    popularArticles,
-                    featuredArticle,
-                    upcomingEvents,
-                    categories,
-                ] = await Promise.all([
-                    firestoreService.fetchBlogPosts(),
-                    firestoreService.fetchRecentStories(),
-                    firestoreService.fetchPopularArticles(),
-                    firestoreService.fetchFeaturedArticle(),
-                    firestoreService.fetchUpcomingEvents(),
-                    firestoreService.fetchCategories(),
-                ]);
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        setData(prev => ({ ...prev, loading: true, error: null }))
 
-                setData({
-                    articles,
-                    recentStories,
-                    popularArticles,
-                    featuredArticle,
-                    upcomingEvents,
-                    categories,
-                    loading: false,
-                    error: null,
-                });
+        // Fetch all data in parallel
+        const [
+          articles,
+          recentStories,
+          popularArticles,
+          featuredArticle,
+          upcomingEvents,
+          categories,
+        ] = await Promise.all([
+          fetchBlogPosts(12),
+          fetchRecentStories(4),
+          fetchPopularArticles(3),
+          fetchFeaturedArticle(),
+          fetchUpcomingEvents(4),
+          fetchCategories(),
+        ])
 
-            } catch (error) {
-                console.error('Error fetching blog data:', error);
-                setData(prev => ({
-                    ...prev,
-                    loading: false,
-                    error: 'Failed to load content. Please refresh the page.',
-                }));
-            }
-        };
+        setData({
+          articles,
+          recentStories,
+          popularArticles,
+          featuredArticle,
+          upcomingEvents,
+          categories,
+          loading: false,
+          error: null,
+        })
 
-        fetchAllData();
-    }, []);
+      } catch (error) {
+        console.error('Error fetching blog data:', error)
+        setData(prev => ({
+          ...prev,
+          loading: false,
+          error: 'Failed to load content. Please refresh the page.',
+        }))
+      }
+    }
 
-    const subscribeNewsletter = async (email) => {
-        try {
-            return await firestoreService.subscribeToNewsletter(email);
-        } catch (error) {
-            console.error('Error subscribing:', error);
-            return { success: false, message: 'Subscription failed' };
-        }
-    };
+    fetchAllData()
+  }, [])
 
-    const trackPostView = async (postId) => {
-        try {
-            const userAgent = navigator.userAgent || '';
-            return await firestoreService.trackPostView(postId, userAgent);
-        } catch (error) {
-            console.error('Error tracking view:', error);
-            return { success: false, error: error.message };
-        }
-    };
+  const handleSubscribeNewsletter = async (email) => {
+    try {
+      return await subscribeToNewsletter(email)
+    } catch (error) {
+      console.error('Error subscribing:', error)
+      return { success: false, message: 'Subscription failed' }
+    }
+  }
 
-    const likePost = async (postId) => {
-        try {
-            return await firestoreService.likePost(postId);
-        } catch (error) {
-            console.error('Error liking post:', error);
-            return { success: false, error: error.message };
-        }
-    };
+  const handleTrackPostView = async (postId) => {
+    try {
+      const userId = session?.user?.id || undefined
+      return await trackPostView(postId, userId)
+    } catch (error) {
+      console.error('Error tracking view:', error)
+      return { success: false, error: error.message }
+    }
+  }
 
-    const unlikePost = async (postId) => {
-        try {
-            return await firestoreService.unlikePost(postId);
-        } catch (error) {
-            console.error('Error unliking post:', error);
-            return { success: false, error: error.message };
-        }
-    };
+  const handleLikePost = async (postId) => {
+    try {
+      if (!session?.user?.id) {
+        return { success: false, message: 'You must be logged in to like posts' }
+      }
+      return await likePost(postId, session.user.id)
+    } catch (error) {
+      console.error('Error liking post:', error)
+      return { success: false, error: error.message }
+    }
+  }
 
-    const checkUserLike = async (postId) => {
-        try {
-            return await firestoreService.checkUserLike(postId);
-        } catch (error) {
-            console.error('Error checking user like:', error);
-            return false;
-        }
-    };
+  const handleUnlikePost = async (postId) => {
+    try {
+      if (!session?.user?.id) {
+        return { success: false, message: 'You must be logged in to unlike posts' }
+      }
+      return await unlikePost(postId, session.user.id)
+    } catch (error) {
+      console.error('Error unliking post:', error)
+      return { success: false, error: error.message }
+    }
+  }
 
-    const addComment = async (postId, commentData) => {
-        try {
-            return await firestoreService.addComment(postId, commentData);
-        } catch (error) {
-            console.error('Error adding comment:', error);
-            return { success: false, error: error.message };
-        }
-    };
+  const handleCheckUserLike = async (postId) => {
+    try {
+      if (!session?.user?.id) return false
+      return await checkUserLike(postId, session.user.id)
+    } catch (error) {
+      console.error('Error checking user like:', error)
+      return false
+    }
+  }
 
-    return {
-        ...data,
-        subscribeNewsletter,
-        trackPostView,
-        likePost,
-        unlikePost,
-        checkUserLike,
-        addComment,
-    };
-};
+  const handleAddComment = async (postId, commentData) => {
+    try {
+      if (!session?.user?.id) {
+        return { success: false, message: 'You must be logged in to comment' }
+      }
+      return await addComment(postId, session.user.id, commentData.content, commentData.parentId)
+    } catch (error) {
+      console.error('Error adding comment:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  return {
+    ...data,
+    subscribeNewsletter: handleSubscribeNewsletter,
+    trackPostView: handleTrackPostView,
+    likePost: handleLikePost,
+    unlikePost: handleUnlikePost,
+    checkUserLike: handleCheckUserLike,
+    addComment: handleAddComment,
+  }
+}

@@ -2,166 +2,220 @@
 
 **Website:** [www.sanaathrumylens.co.ke](https://www.sanaathrumylens.co.ke)
 
-SanaaThruMyLens is a blog that explores Kenya’s and Africa’s creative scene, covering **music, video reviews, cultural analysis, artist spotlights, arts education, events, and more**.
+SanaaThruMyLens is a blog that explores Kenya's and Africa's creative scene, covering **music, video reviews, cultural analysis, artist spotlights, arts education, events, and more**.
 
-This project is built using **Next.js 14+, Tailwind CSS, and Shadcn/UI**, with full support for **authentication, dynamic blog pages, SEO, and dashboard features**.
-
----
-
-## Table of Contents
-
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Authentication](#authentication)
-- [Adding Blog Posts](#adding-blog-posts)
-- [SEO & Metadata](#seo--metadata)
-- [Deployment](#deployment)
-- [Contributing](#contributing)
-- [License](#license)
-
----
-
-## Features
-
-- Homepage with **hero carousel**, featured posts, and categories
-- Dynamic **blog pages** by slug, with related articles, author bio, comments, and subscription forms
-- **Author pages**, category pages, tags, events pages
-- Authentication system: signup, login, reset password
-- **Dashboard**: bookmarks, posts, users
-- Full **SEO and Open Graph support** for posts, authors, events, and pages
-- RSS feed and sitemaps for better indexing
-- Firebase integration (Auth & Firestore)
-- Tailwind CSS + Shadcn/UI components for responsive UI
+This project is built using **Next.js 16, Tailwind CSS 4, Prisma ORM, and NextAuth.js v5**, with MySQL database and Cloudinary for image storage.
 
 ---
 
 ## Tech Stack
 
-- **Framework:** Next.js 14+ (App Router)
-- **Styling:** Tailwind CSS + Shadcn/UI
-- **Authentication:** Firebase Auth
-- **Database:** Firestore (web + server)
-- **Content:** Markdown & Firestore posts
-- **SEO:** Dynamic meta, OG, sitemaps, feed.xml
-- **Deployment:** cPanel / Node.js hosting
-
----
-
-## Project Structure
-
-src/
-├─ app/
-│ ├─ (auth-pages)/auth, signup, reset-password # Authentication pages
-│ ├─ (website)/about, author, blogs, categories, events, tags # Public pages
-│ ├─ api/ # API routes for posts/authors
-│ ├─ dashboard/ # Admin/Dashboard pages
-│ ├─ feed.xml/ # RSS feed
-│ ├─ og/ # Open Graph images
-│ ├─ sitemaps.xml & sitemaps-images.xml # Sitemap routes
-│ ├─ globals.css # Tailwind global CSS
-│ ├─ layout.js # Root layout
-│ └─ favicon.ico
-│
-├─ components/ # Reusable UI components
-│ ├─ blog/
-│ ├─ homepage/
-│ └─ layout/
-│
-├─ contexts/ # React context (AuthContext)
-├─ hooks/ # Custom hooks (useAuth, useBlogData)
-├─ lib/ # Firebase & Firestore utils
-├─ utils/ # SEO & user utilities
-
-markdown
-Copy code
-
-**Key Components:**
-
-- `BlogCard.js` – Blog preview cards
-- `HeroCarousel.js` – Homepage hero slider
-- `Header.js` – Navbar layout
-- `_components/` inside `[slug]` – Components specific to a blog post (Comments, Related Articles, Author Bio, etc.)
+| Category | Technology |
+|----------|------------|
+| **Framework** | Next.js 16.1.1 (App Router) |
+| **Language** | TypeScript |
+| **Styling** | Tailwind CSS v4 |
+| **Database** | MySQL (via Prisma ORM) |
+| **Authentication** | NextAuth.js v5 |
+| **OAuth Providers** | Google |
+| **Image Storage** | Cloudinary |
+| **Animations** | Framer Motion |
 
 ---
 
 ## Getting Started
 
-1. **Clone the repository**
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/sanaathrumylens.git
+git clone https://github.com/AmungaLucas/sanaathrumylens.git
 cd sanaathrumylens
-Install dependencies
+```
 
-bash
-Copy code
+### 2. Install dependencies
+
+```bash
 npm install
-Run the development server
+```
 
-bash
-Copy code
+### 3. Set up environment variables
+
+Copy `.env.example` to `.env` and fill in your credentials:
+
+```bash
+cp .env.example .env
+```
+
+Required environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | MySQL connection string |
+| `NEXTAUTH_URL` | Your app URL |
+| `NEXTAUTH_SECRET` | Random secret for JWT encryption |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name |
+| `CLOUDINARY_API_KEY` | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret |
+
+### 4. Set up the database
+
+```bash
+# Generate Prisma client
+npm run db:generate
+
+# Push schema to database
+npm run db:push
+
+# Seed the database with initial data
+npm run db:seed
+```
+
+### 5. Run the development server
+
+```bash
 npm run dev
-Open http://localhost:3000 to view the website.
+```
 
-Build for production
+Open [http://localhost:3000](http://localhost:3000) to view the website.
 
-bash
-Copy code
-npm run build
-npm run start
-Authentication
-Signup, login, and reset-password pages are under (auth-pages)/auth and (auth-pages)/signup
-
-Uses Firebase Auth
-
-useAuth.js hook manages auth state, while AuthContext.js provides context to components
-
-Adding Blog Posts
-Add posts in Firestore or as .md files in your content folder
-Each post should have:
-
-md
-Copy code
----
-title: "Post Title"
-subtitle: "Optional Subtitle"
-author: "Author Name"
-date: "YYYY-MM-DD"
-categories: ["Category1", "Category2"]
-tags: ["Tag1", "Tag2"]
-seoTitle: "SEO Optimized Title"
-seoDescription: "SEO Optimized description for Google"
 ---
 
-# Post Heading
+## Database Schema
 
-Post content goes here...
-Dynamic routes [slug]/page.js will render posts automatically
+The application uses the following main tables:
 
-SEO & Metadata
-Homepage, posts, authors, events, and tags all have dynamic meta via seo.js
-Open Graph images are generated dynamically from og/ routes
-Sitemap and RSS feed are generated via sitemaps.xml and feed.xml
-Deployment
-Can be deployed on cPanel, Vercel, or any Node.js hosting
-Steps for cPanel:
-Upload project files to public_html
-Install Node.js & run npm install
-Build with npm run build and start with npm start
+- **users** - User accounts and profiles
+- **authors** - Author profiles (linked to users)
+- **posts** - Blog posts
+- **categories** - Post categories
+- **comments** - Post comments with nested replies
+- **likes** - Post likes
+- **bookmarks** - User bookmarks
+- **events** - Events calendar
+- **subscribers** - Newsletter subscribers
 
-Contributing
-Add blog posts or authors
-Add new components or pages
-Improve SEO metadata or performance
-Open PRs or issues for major changes
+---
 
-License
-Open-source project – free to use and modify.
-Created with ❤️ by SanaaThruMyLens
+## Authentication
 
-vbnet
-Copy code
+The application uses **NextAuth.js v5** with:
+
+- **Credentials Provider** (email/password)
+- **Google OAuth Provider**
+
+### Default Admin Account
+
+After running the seed command, you can log in with:
+
+- **Email:** admin@sanaathrumylens.co.ke
+- **Password:** Admin@123
+
+### User Roles
+
+| Role | Permissions |
+|------|-------------|
+| USER | Comment, like, bookmark |
+| EDITOR | Create/edit posts |
+| MODERATOR | Moderate comments |
+| ADMIN | Full access |
+
+---
+
+## Project Structure
 
 ```
+src/
+├── app/
+│   ├── (auth-pages)/       # Authentication pages
+│   ├── (website)/          # Public pages
+│   ├── api/                # API routes
+│   ├── dashboard/          # Admin dashboard
+│   └── seo/                # SEO utilities
+├── components/
+│   ├── blog/               # Blog components
+│   ├── homepage/           # Homepage components
+│   └── layout/             # Layout components
+├── contexts/
+│   └── AuthContext.tsx     # Authentication context
+├── hooks/
+│   └── useBlogData.ts      # Data fetching hook
+├── lib/
+│   ├── auth.ts             # NextAuth configuration
+│   ├── prisma.ts           # Prisma client
+│   ├── db.ts               # Database services
+│   └── cloudinary.ts       # Image upload service
+└── utils/
+    └── userUtils.ts        # User utility functions
+```
+
+---
+
+## Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run start` | Start production server |
+| `npm run db:generate` | Generate Prisma client |
+| `npm run db:push` | Push schema changes to database |
+| `npm run db:studio` | Open Prisma Studio |
+| `npm run db:seed` | Seed database with initial data |
+
+---
+
+## API Endpoints
+
+### Posts
+- `GET /api/posts` - List posts
+- `GET /api/posts/[id]` - Get single post
+- `POST /api/posts/[id]/like` - Like a post
+- `DELETE /api/posts/[id]/like` - Unlike a post
+- `POST /api/posts/[id]/view` - Track post view
+- `GET /api/posts/[id]/comments` - Get comments
+- `POST /api/posts/[id]/comments` - Add comment
+
+### Categories
+- `GET /api/categories` - List categories
+
+### Events
+- `GET /api/events/upcoming` - Get upcoming events
+
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/reset-password` - Request password reset
+
+---
+
+## Deployment
+
+The application can be deployed on:
+- Vercel
+- cPanel with Node.js
+- Any Node.js hosting
+
+### Build for production
+
+```bash
+npm run build
+npm run start
+```
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+---
+
+## License
+
+Open-source project – free to use and modify.
+
+Created with ❤️ by SanaaThruMyLens

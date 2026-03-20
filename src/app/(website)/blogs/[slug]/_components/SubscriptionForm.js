@@ -2,7 +2,7 @@
 
 "use client";
 import { useState } from "react";
-import { subscribeToNewsletter as subscribeNewsletter } from "@/lib/firestore";
+import { subscribeToNewsletter } from "@/lib/db";
 import { SectionTitle } from "./SectionTitle";
 
 export default function SubscriptionForm() {
@@ -22,7 +22,7 @@ export default function SubscriptionForm() {
 
         setLoading(true);
         try {
-            const result = await subscribeNewsletter(email);
+            const result = await subscribeToNewsletter(email);
             setSubscriptionStatus(result);
             if (result.success) {
                 setEmail("");

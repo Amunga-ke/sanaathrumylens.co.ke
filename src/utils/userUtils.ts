@@ -1,17 +1,18 @@
-// src/utils/userUtils.js
+// src/utils/userUtils.ts
 
 /**
  * Generate user initials from display name or email
- * @param {Object} user
- * @returns {string}
  */
-export function getUserInitials(user) {
+export function getUserInitials(user: { name?: string | null; displayName?: string; email?: string | null } | null): string {
     if (!user) return "U";
 
     let source = "";
 
-    if (user.displayName && user.displayName.trim()) {
-        source = user.displayName.trim();
+    // Support both 'name' (NextAuth) and 'displayName' (legacy)
+    const displayName = user.name || user.displayName;
+
+    if (displayName && displayName.trim()) {
+        source = displayName.trim();
         const names = source.split(/\s+/);
 
         if (names.length >= 2) {
@@ -37,10 +38,15 @@ export function getUserInitials(user) {
 
 /**
  * Get user avatar data
- * @param {Object} user
- * @returns {Object}
  */
-export function getUserAvatar(user) {
+export function getUserAvatar(user: { name?: string | null; displayName?: string; email?: string | null; image?: string | null; photoURL?: string } | null): {
+    type: "image" | "initials";
+    url?: string;
+    initials?: string;
+    backgroundColor?: string;
+    color?: string;
+    alt: string;
+} {
     if (!user) {
         return {
             type: "initials",
@@ -51,11 +57,14 @@ export function getUserAvatar(user) {
         };
     }
 
-    if (user.photoURL) {
+    // Support both 'image' (NextAuth) and 'photoURL' (legacy)
+    const avatarUrl = user.image || user.photoURL;
+
+    if (avatarUrl) {
         return {
             type: "image",
-            url: user.photoURL,
-            alt: user.displayName || user.email || "User avatar",
+            url: avatarUrl,
+            alt: user.name || user.displayName || user.email || "User avatar",
         };
     }
 
@@ -64,17 +73,15 @@ export function getUserAvatar(user) {
         initials: getUserInitials(user),
         backgroundColor: getAvatarColor(user),
         color: "#FFFFFF",
-        alt: `Avatar for ${user.displayName || user.email || "user"}`,
+        alt: `Avatar for ${user.name || user.displayName || user.email || "user"}`,
     };
 }
 
 /**
  * Generate consistent avatar color
- * @param {Object} user
- * @returns {string}
  */
-function getAvatarColor(user) {
-    const seed = (user.displayName || user.email || "user").toLowerCase();
+function getAvatarColor(user: { name?: string | null; displayName?: string; email?: string | null }): string {
+    const seed = (user.name || user.displayName || user.email || "user").toLowerCase();
     let hash = 0;
 
     for (let i = 0; i < seed.length; i++) {
@@ -99,14 +106,15 @@ function getAvatarColor(user) {
 
 /**
  * Get user display name
- * @param {Object} user
- * @returns {string}
  */
-export function getUserDisplayName(user) {
+export function getUserDisplayName(user: { name?: string | null; displayName?: string; email?: string | null } | null): string {
     if (!user) return "User";
 
-    if (user.displayName?.trim()) {
-        return user.displayName.trim();
+    // Support both 'name' (NextAuth) and 'displayName' (legacy)
+    const displayName = user.name || user.displayName;
+
+    if (displayName?.trim()) {
+        return displayName.trim();
     }
 
     if (user.email) {

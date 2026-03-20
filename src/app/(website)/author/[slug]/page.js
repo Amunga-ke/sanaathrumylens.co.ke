@@ -1,5 +1,4 @@
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getAuthorBySlug } from '@/lib/db';
 import { SITE_NAME, SITE_URL, DEFAULT_OG_IMAGE } from '@/app/seo/constants';
 import { generateCanonicalUrl } from '@/app/seo/meta';
 import AuthorProfileClient from './AuthorProfileClient';
@@ -14,17 +13,12 @@ export async function generateMetadata({ params }) {
     let authorImage = DEFAULT_OG_IMAGE;
 
     try {
-        // Try to fetch author from Firestore
-        const authorsRef = collection(db, 'authors');
-        const authorQuery = query(authorsRef, where('slug', '==', slug), where('isActive', '==', true), limit(1));
-        const authorSnapshot = await getDocs(authorQuery);
+        const author = await getAuthorBySlug(slug);
 
-        if (!authorSnapshot.empty) {
-            const authorDoc = authorSnapshot.docs[0];
-            const data = authorDoc.data();
-            authorName = data.name || slug;
-            authorBio = data.bio || '';
-            authorImage = data.photoURL || DEFAULT_OG_IMAGE;
+        if (author) {
+            authorName = author.name || slug;
+            authorBio = author.bio || '';
+            authorImage = author.photoURL || DEFAULT_OG_IMAGE;
         }
     } catch (e) {
         console.error('Error fetching author for SEO:', e);

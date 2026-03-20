@@ -6,7 +6,7 @@ import AdsGoogle from '@/components/AdsGoogle';
 import { ChevronLeft, ChevronRight, MessageCircle, Eye, Heart, Calendar, MapPin, User, ArrowRight, ChevronDown } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { auth } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { useBlogData } from '@/hooks/useBlogData';
 import HeroCarousel from './_components/HeroCarousel';
@@ -60,8 +60,10 @@ export default function HomeClientPage({ siteUrl, siteName }) {
     const [currentSlide, setCurrentSlide] = useState(0);
     const [email, setEmail] = useState('');
     const [subscribeStatus, setSubscribeStatus] = useState(null);
-    const [user, setUser] = useState(null);
     const [likedPosts, setLikedPosts] = useState({});
+
+    // Get user from auth context
+    const { user } = useAuth();
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
@@ -160,17 +162,12 @@ export default function HomeClientPage({ siteUrl, siteName }) {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Monitor auth state
+    // Reset liked posts when user changes
     useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged((user) => {
-            setUser(user);
-            // Reset liked posts when user changes
-            if (!user) {
-                setLikedPosts({});
-            }
-        });
-        return () => unsubscribe();
-    }, []);
+        if (!user) {
+            setLikedPosts({});
+        }
+    }, [user]);
 
     // Fetch liked status for featured and popular articles only when user changes
     useEffect(() => {

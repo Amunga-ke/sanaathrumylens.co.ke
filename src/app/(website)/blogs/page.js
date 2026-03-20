@@ -1,8 +1,8 @@
 import { generateBlogListingMetadata } from '@/app/seo/meta';
 import {
-    fetchBlogPosts, fetchFeaturedArticle, fetchRecentStories,
-    fetchPopularArticles, fetchCategories
-} from '@/lib/firestore';
+    getPosts, getFeaturedPost, getRecentPosts,
+    getPopularPosts, getCategories
+} from '@/lib/db';
 import BlogClient from './BlogClient';
 import Link from 'next/link';
 
@@ -19,15 +19,15 @@ export async function generateMetadata({ searchParams }) {
     });
 }
 
-// Helper function to serialize Firestore data for client components
+// Helper function to serialize data for client components
 function serializeForClient(data) {
     if (Array.isArray(data)) {
         return data.map(item => serializeForClient(item));
     }
 
     if (data && typeof data === 'object' && !(data instanceof Date)) {
-        if (data.seconds !== undefined && data.nanoseconds !== undefined) {
-            return new Date(data.seconds * 1000 + data.nanoseconds / 1000000).toISOString();
+        if (data instanceof Date) {
+            return data.toISOString();
         }
 
         const result = {};
@@ -59,7 +59,8 @@ function removeDuplicatesById(array) {
 // Helper to fetch posts with filters
 async function fetchPostsWithFilters(search = '', category = '', page = 1, limit = 12) {
     try {
-        let posts = await fetchBlogPosts(100); // Fetch enough for filtering
+        // Get all published posts
+        let posts = await getPosts({ limit: 100 });
 
         if (search) {
             posts = posts.filter(post =>
@@ -70,8 +71,8 @@ async function fetchPostsWithFilters(search = '', category = '', page = 1, limit
 
         if (category) {
             posts = posts.filter(post =>
-                post.category === category ||
-                post.categoryIds?.includes(category)
+                post.category?.name === category ||
+                post.category?.slug === category
             );
         }
 
@@ -80,8 +81,8 @@ async function fetchPostsWithFilters(search = '', category = '', page = 1, limit
 
         // Sort by published date (newest first)
         posts.sort((a, b) => {
-            const dateA = a.publishedAt?.seconds ? a.publishedAt.seconds * 1000 : new Date(a.publishedAt).getTime();
-            const dateB = b.publishedAt?.seconds ? b.publishedAt.seconds * 1000 : new Date(b.publishedAt).getTime();
+            const dateA = new Date(a.publishedAt).getTime();
+            const dateB = new Date(b.publishedAt).getTime();
             return dateB - dateA;
         });
 
@@ -123,10 +124,10 @@ async function getServerSideData(searchParams) {
             categories
         ] = await Promise.all([
             fetchPostsWithFilters(search, category, page, 12),
-            fetchFeaturedArticle(),
-            fetchRecentStories(4),
-            fetchPopularArticles(4),
-            fetchCategories()
+            getFeaturedPost(),
+            getRecentPosts(4),
+            getPopularPosts(4),
+            getCategories()
         ]);
 
         // Remove duplicates from sidebar content

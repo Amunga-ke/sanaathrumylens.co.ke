@@ -13,7 +13,7 @@ import {
     unlikePost,
     checkUserBookmark,
     toggleBookmark,
-} from "@/lib/firestore";
+} from "@/lib/db";
 
 import { Bookmark, Eye, Share2, Calendar, Clock, Heart, Twitter, Facebook } from "lucide-react";
 

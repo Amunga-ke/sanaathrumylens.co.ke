@@ -1,14 +1,14 @@
-// src/app/og/events/[slug]/route.js
+// src/app/og/authors/[slug]/route.tsx
 
 import { ImageResponse } from '@vercel/og';
-import { fetchAuthorBySlug } from '@/lib/serverFirestore';
+import { getAuthorBySlug } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
-export default async function handler(req, { params }) {
+export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
     try {
-        const { slug } = params;
-        const author = await fetchAuthorBySlug(slug);
+        const { slug } = await params;
+        const author = await getAuthorBySlug(slug);
 
         const name = author?.name || 'Author';
         const avatar = author?.avatar || null;

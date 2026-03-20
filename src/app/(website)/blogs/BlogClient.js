@@ -1,15 +1,13 @@
 "use client";
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { collection, query, where, orderBy, limit, getDocs, startAfter } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
     Calendar, User, Eye, MessageCircle, Heart, ArrowRight,
     Grid, List, Search, Facebook, Share2, Loader, ChevronRight, ChevronLeft
 } from 'lucide-react';
-import { subscribeToNewsletter } from '@/lib/firestore';
+import { subscribeToNewsletter, fetchBlogPosts } from "@/lib/db";
 import AdsGoogle from '@/components/AdsGoogle';
 
 // Skeleton Loader Components
@@ -172,33 +170,14 @@ export default function BlogClient({
             setLoadingMore(true);
             console.log(`Loading page ${nextPage}...`);
 
-            let q = query(
-                collection(db, 'posts'),
-                where('status', '==', 'published'),
-                where('isDeleted', '==', false),
-                orderBy('publishedAt', 'desc'),
-                limit(postsPerPage * nextPage) // Load all posts up to the requested page
-            );
+            // Fetch posts via API
+            const allPosts = await fetchBlogPosts(100);
 
-            const snapshot = await getDocs(q);
-
-            if (snapshot.empty) {
+            if (!allPosts || allPosts.length === 0) {
                 setHasMore(false);
                 setLoadingMore(false);
                 return;
             }
-
-            // Get all posts up to the requested page
-            const allPosts = snapshot.docs.map(doc => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    ...data,
-                    publishedAt: data.publishedAt?.toDate ? data.publishedAt.toDate() : data.publishedAt,
-                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
-                    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
-                };
-            });
 
             // Apply client-side filters
             let filteredPosts = allPosts;
@@ -210,7 +189,10 @@ export default function BlogClient({
             }
 
             if (selectedCategory) {
-                filteredPosts = filteredPosts.filter(post => post.category === selectedCategory);
+                filteredPosts = filteredPosts.filter(post => 
+                    post.category?.name === selectedCategory || 
+                    post.category === selectedCategory
+                );
             }
 
             // Calculate the posts for the specific page we're loading
@@ -251,7 +233,7 @@ export default function BlogClient({
         } finally {
             setLoadingMore(false);
         }
-    }, [lastDoc, hasMore, loadingMore, searchQuery, selectedCategory, postsPerPage, searchParams, currentPage, loadedPages, router]);
+    }, [hasMore, loadingMore, searchQuery, selectedCategory, postsPerPage, searchParams, currentPage, loadedPages, router]);
 
     // Handle search and category changes
     useEffect(() => {

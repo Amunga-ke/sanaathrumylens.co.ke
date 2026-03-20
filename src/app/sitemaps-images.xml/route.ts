@@ -1,11 +1,11 @@
-// src/app/sitemaps-images.xml/route.js
+// src/app/sitemaps-images.xml/route.ts
 import { NextResponse } from 'next/server';
-import { fetchPublishedPosts, fetchPublishedEvents } from '@/lib/serverFirestore';
+import { getPosts, getEvents, EventStatus } from '@/lib/db';
 
 import { SITE_URL } from '../seo/constants';
 
 // Escape XML special characters
-const escapeXml = (unsafe) => {
+const escapeXml = (unsafe: string): string => {
     if (typeof unsafe !== 'string') return '';
     return unsafe
         .replace(/&/g, '&amp;')
@@ -18,23 +18,22 @@ const escapeXml = (unsafe) => {
 export async function GET() {
     try {
         const [posts, events] = await Promise.all([
-            fetchPublishedPosts(500),
-            fetchPublishedEvents(500)
+            getPosts({ limit: 500 }),
+            getEvents({ limit: 500, status: EventStatus.PUBLISHED })
         ]);
 
         // Process posts
         const postItems = posts
-            .filter((post) => post.coverImage || post.featuredImage || (post.images && post.images.length > 0))
-            .map((post) => {
+            .filter((post: any) => post.coverImage || post.featuredImage)
+            .map((post: any) => {
                 const loc = `${SITE_URL}/blogs/${post.slug}`;
                 const title = escapeXml(post.title || '');
 
                 // Collect all images
                 const images = [
-                    post.coverImage?.url || post.coverImage,
-                    post.featuredImage?.url || post.featuredImage,
-                    ...(Array.isArray(post.images) ? post.images.map(img => img.url || img) : []),
-                ].filter(img => typeof img === 'string');
+                    post.coverImage,
+                    post.featuredImage,
+                ].filter((img): img is string => typeof img === 'string');
 
                 const imageBlocks = images
                     .map((img) => `    <image:image>
@@ -52,16 +51,13 @@ ${imageBlocks}
 
         // Process events
         const eventItems = events
-            .filter((event) => event.coverImage || event.featuredImage)
-            .map((event) => {
+            .filter((event: any) => event.coverImage)
+            .map((event: any) => {
                 const loc = `${SITE_URL}/events/${event.slug || event.id}`;
                 const title = escapeXml(event.title || '');
 
                 // Collect all images
-                const images = [
-                    event.coverImage?.url || event.coverImage,
-                    event.featuredImage?.url || event.featuredImage,
-                ].filter(img => typeof img === 'string');
+                const images = [event.coverImage].filter((img): img is string => typeof img === 'string');
 
                 const imageBlocks = images
                     .map((img) => `    <image:image>
@@ -88,8 +84,8 @@ ${allItems.join('\n')}
         return new NextResponse(xml, {
             headers: { 'Content-Type': 'application/xml' },
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error generating image sitemap:', error);
-        return new NextResponse(`Error generating image sitemap: ${error.message}`, { status: 500 });
+        return new NextResponse(`Error generating image sitemap: ${error?.message}`, { status: 500 });
     }
 }

@@ -1,18 +1,18 @@
-// src/app/og/events/[slug]/route.js
+// src/app/og/events/[slug]/route.tsx
 
 import { ImageResponse } from '@vercel/og';
-import { fetchEventBySlug } from '@/lib/serverFirestore';
+import { getEventBySlug } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
-export default async function handler(req, { params }) {
+export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
     try {
-        const { slug } = params;
-        const event = await fetchEventBySlug(slug);
+        const { slug } = await params;
+        const event = await getEventBySlug(slug);
 
         const title = event?.title || 'Event';
         const date = event?.startDate ? new Date(event.startDate).toLocaleDateString() : '';
-        const bg = event?.coverImage || event?.featuredImage || null;
+        const bg = event?.coverImage || null;
 
         return new ImageResponse(
             (

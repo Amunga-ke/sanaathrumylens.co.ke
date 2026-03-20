@@ -1,15 +1,15 @@
 import { generateBlogMetadata } from "@/app/seo/meta";
 import BlogPostClient from "./BlogPostClient";
-import { fetchCompleteArticleData } from "@/lib/firestore";
+import { getPostBySlug, getRecentPosts, getCategories, getPostsByAuthor, getRelatedPosts } from "@/lib/db";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Link from "next/link";
 import { FileQuestion, Home } from "lucide-react";
 
 export async function generateMetadata({ params }) {
     const { slug } = await params;
-    const data = await fetchCompleteArticleData(slug);
+    const post = await getPostBySlug(slug);
 
-    if (!data || !data.post) {
+    if (!post) {
         return {
             title: "Article Not Found",
             description: "The requested article could not be found.",
@@ -17,16 +17,16 @@ export async function generateMetadata({ params }) {
     }
 
     return generateBlogMetadata({
-        title: data.post.title,
-        excerpt: data.post.excerpt,
+        title: post.title,
+        excerpt: post.excerpt,
         slug,
-        ogImage: data.post.coverImage || data.post.featuredImage,
-        authorName: data.post.author?.name,
-        publishedDate: data.post.publishedAt,
+        ogImage: post.coverImage || post.featuredImage,
+        authorName: post.author?.name,
+        publishedDate: post.publishedAt,
     });
 }
 
-// Helper function to deeply serialize all objects, including Firestore Timestamps
+// Helper function to serialize data for client
 function serializeForClient(data) {
     if (data === null || data === undefined) {
         return data;
@@ -37,19 +37,13 @@ function serializeForClient(data) {
         return data.map(item => serializeForClient(item));
     }
 
-    // Handle objects (including Firestore Timestamps)
+    // Handle Date objects
+    if (data instanceof Date) {
+        return data.toISOString();
+    }
+
+    // Handle objects
     if (typeof data === 'object') {
-        // Check if it's a Firestore Timestamp
-        if (data.seconds !== undefined && data.nanoseconds !== undefined) {
-            return new Date(data.seconds * 1000 + data.nanoseconds / 1000000).toISOString();
-        }
-
-        // Check if it's a Date object
-        if (data instanceof Date) {
-            return data.toISOString();
-        }
-
-        // Handle regular objects
         const result = {};
         for (const key in data) {
             if (data.hasOwnProperty(key)) {
@@ -67,9 +61,9 @@ export default async function Page({ params }) {
     const { slug } = await params;
 
     // Fetch data on server
-    const data = await fetchCompleteArticleData(slug);
+    const post = await getPostBySlug(slug);
 
-    if (!data?.post) {
+    if (!post) {
         return (
             <div className="min-h-screen flex items-center justify-center p-8 bg-base-bg">
                 <div className="text-center max-w-md p-10 bg-surface rounded-2xl border border-base-border shadow-xl">
@@ -89,14 +83,22 @@ export default async function Page({ params }) {
         );
     }
 
+    // Fetch related data in parallel
+    const [recentStories, categories, articlesByAuthor, relatedArticles] = await Promise.all([
+        getRecentPosts(5),
+        getCategories(),
+        getPostsByAuthor(post.authorId, post.id, 4),
+        getRelatedPosts(post.categoryId, post.id, 4),
+    ]);
+
     // Serialize ALL data before passing to client component
     const serializedData = {
-        post: serializeForClient(data.post),
-        recentStories: serializeForClient(data.recentStories || []),
-        categories: serializeForClient(data.categories || []),
-        articlesByAuthor: serializeForClient(data.articlesByAuthor || []),
-        relatedArticles: serializeForClient(data.relatedArticles || []),
-        viewCount: data.viewCount || 0
+        post: serializeForClient(post),
+        recentStories: serializeForClient(recentStories || []),
+        categories: serializeForClient(categories || []),
+        articlesByAuthor: serializeForClient(articlesByAuthor || []),
+        relatedArticles: serializeForClient(relatedArticles || []),
+        viewCount: post.viewCount || 0
     };
 
     return (
@@ -107,14 +109,14 @@ export default async function Page({ params }) {
                     __html: JSON.stringify({
                         '@context': 'https://schema.org',
                         '@type': 'Article',
-                        headline: data.post.title,
-                        description: data.post.excerpt,
+                        headline: post.title,
+                        description: post.excerpt,
                         author: {
                             '@type': 'Person',
-                            name: data.post.author?.name || 'Anonymous'
+                            name: post.author?.name || 'Anonymous'
                         },
-                        datePublished: data.post.publishedAt,
-                        image: data.post.coverImage || data.post.featuredImage,
+                        datePublished: post.publishedAt?.toISOString(),
+                        image: post.coverImage || post.featuredImage,
                     }),
                 }}
             />

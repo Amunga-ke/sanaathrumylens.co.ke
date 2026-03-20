@@ -1,31 +1,15 @@
 import Link from 'next/link';
-import { db } from '@/lib/firebaseAdmin';
+import { getAuthors } from '@/lib/db';
 
 export const revalidate = 3600; // Revalidate every hour
-
-async function getAuthors() {
-    try {
-        const snapshot = await db.collection('authors')
-            .where('isActive', '==', true)
-            .orderBy('name')
-            .get();
-
-        return snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-    } catch (error) {
-        console.error('Error fetching authors:', error);
-        throw new Error('Failed to fetch authors');
-    }
-}
 
 export default async function AuthorsIndex() {
     let authors;
 
     try {
-        authors = await getAuthors();
+        authors = await getAuthors(50);
     } catch (error) {
+        console.error('Error fetching authors:', error);
         return (
             <main className="container mx-auto p-6">
                 <h1 className="text-3xl font-bold mb-4">Authors</h1>
@@ -63,6 +47,11 @@ export default async function AuthorsIndex() {
                         {author.bio && (
                             <p className="text-sm text-gray-600 mt-2 line-clamp-2">
                                 {author.bio}
+                            </p>
+                        )}
+                        {author._count?.posts !== undefined && (
+                            <p className="text-sm text-gray-500 mt-1">
+                                {author._count.posts} article{author._count.posts !== 1 ? 's' : ''}
                             </p>
                         )}
                     </Link>

@@ -4,7 +4,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { DEFAULT_DESCRIPTION, DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL, TWITTER_HANDLE } from "./seo/constants";
 
-
 export const metadata = {
   metadataBase: new URL(SITE_URL),
 
@@ -47,17 +46,17 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <AuthProvider>
-      <html lang="en">
-        <head>
-          {/* Google AdSense Script */}
-          <script
-            async
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_ID}`}
-            crossOrigin="anonymous"
-          ></script>
-        </head>
-        <body>
+    <html lang="en">
+      <head>
+        {/* Google AdSense Script */}
+        <script
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_ID}`}
+          crossOrigin="anonymous"
+        ></script>
+      </head>
+      <body>
+        <AuthProvider>
           {children}
           <Toaster
             position="top-right"
@@ -67,8 +66,8 @@ export default function RootLayout({ children }) {
               success: { duration: 3000, theme: { primary: "green", secondary: "black" } },
             }}
           />
-        </body>
-      </html>
-    </AuthProvider>
+        </AuthProvider>
+      </body>
+    </html>
   );
 }

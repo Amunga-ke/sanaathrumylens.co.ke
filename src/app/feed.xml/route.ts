@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
-import { fetchPublishedPosts, fetchPublishedEvents } from '@/lib/serverFirestore';
+import { getPosts, getEvents, EventStatus } from '@/lib/db';
 import { SITE_NAME, SITE_URL } from '../seo/constants';
 
 // In-memory cache
-let cachedRSS = null;
+let cachedRSS: string | null = null;
 let lastGenerated = 0;
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 // Escape XML special characters
-const escapeXml = (unsafe) => {
+const escapeXml = (unsafe: string): string => {
   if (typeof unsafe !== 'string') return '';
   return unsafe
     .replace(/&/g, '&amp;')
@@ -19,9 +19,6 @@ const escapeXml = (unsafe) => {
 };
 
 export async function GET() {
-  // DEBUG - Comment this out to allow Firebase execution
-  // return new NextResponse('Feed Route reached!', { status: 200 });
-
   const now = Date.now();
 
   // Return cached feed if it's still valid
@@ -30,17 +27,15 @@ export async function GET() {
   }
 
   try {
-    // Add fallback for Firebase errors
-    let posts = [];
-    let events = [];
+    let posts: any[] = [];
+    let events: any[] = [];
 
     try {
       // Fetch latest published content
-      posts = await fetchPublishedPosts(30);
-      events = await fetchPublishedEvents(20);
-    } catch (firebaseError) {
-      console.error('Firebase fetch error in feed:', firebaseError.message);
-      // Continue with empty arrays if Firebase fails
+      posts = await getPosts({ limit: 30 });
+      events = await getEvents({ limit: 20, status: EventStatus.PUBLISHED });
+    } catch (dbError: any) {
+      console.error('Database fetch error in feed:', dbError?.message);
       posts = [];
       events = [];
     }
@@ -48,24 +43,24 @@ export async function GET() {
     // Combine and sort all content by date
     const allContent = [
       ...posts.map(post => ({
-        type: 'post',
+        type: 'post' as const,
         ...post,
         pubDate: post.publishedAt || post.createdAt,
         link: `${SITE_URL}/blogs/${post.slug}`,
-        description: post.excerpt || post.description || ''
+        description: post.excerpt || ''
       })),
       ...events.map(event => ({
-        type: 'event',
+        type: 'event' as const,
         ...event,
         pubDate: event.startDate || event.createdAt,
         link: `${SITE_URL}/events/${event.slug || event.id}`,
-        description: event.description || event.excerpt || `Event happening on ${new Date(event.startDate).toLocaleDateString()}`
+        description: event.description || `Event happening on ${new Date(event.startDate).toLocaleDateString()}`
       }))
     ].filter(item => {
       if (item.type === 'event' && !item.startDate) return false;
       const date = new Date(item.pubDate);
       return !isNaN(date.getTime());
-    }).sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate))
+    }).sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
       .slice(0, 50); // Limit to 50 items
 
     // Map content to RSS <item> format
@@ -75,24 +70,16 @@ export async function GET() {
         : new Date().toUTCString();
 
       let categoryTag = '';
-      if (item.type === 'post' && item.category) {
-        categoryTag = `<category>${item.category}</category>`;
+      if (item.type === 'post' && item.category?.name) {
+        categoryTag = `<category>${escapeXml(item.category.name)}</category>`;
       } else if (item.type === 'event') {
         categoryTag = `<category>Event</category>`;
-        if (item.category) {
-          categoryTag += `<category>${item.category}</category>`;
-        }
       }
 
       // Add image if available
       let imageTag = '';
       if (item.coverImage || item.featuredImage) {
-        let imageUrl = '';
-        if (typeof item.coverImage === 'string') imageUrl = item.coverImage;
-        else if (item.coverImage?.url) imageUrl = item.coverImage.url;
-        else if (typeof item.featuredImage === 'string') imageUrl = item.featuredImage;
-        else if (item.featuredImage?.url) imageUrl = item.featuredImage.url;
-
+        const imageUrl = item.coverImage || item.featuredImage;
         if (imageUrl) {
           imageTag = `<enclosure url="${escapeXml(imageUrl)}" type="image/jpeg" />`;
         }

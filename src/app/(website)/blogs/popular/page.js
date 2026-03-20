@@ -1,78 +1,28 @@
 // src/app/blogs/popular/page.js
 "use client";
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Calendar, User, Eye, MessageCircle, Heart, ArrowRight, Flame } from 'lucide-react';
+import { Eye, ArrowRight, Flame, Heart } from 'lucide-react';
+import { fetchPopularArticles } from "@/lib/db";
 
 export default function PopularArticlesPage() {
     const [popularPosts, setPopularPosts] = useState([]);
-    const [trendingPosts, setTrendingPosts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        fetchPopularArticles();
+        fetchPopularArticlesData();
     }, []);
 
-    const fetchPopularArticles = async () => {
+    const fetchPopularArticlesData = async () => {
         try {
             setLoading(true);
 
-            // Fetch most viewed articles
-            const mostViewedQuery = query(
-                collection(db, 'posts'),
-                where('status', '==', 'published'),
-                where('isDeleted', '==', false),
-                orderBy('stats.views', 'desc'),
-                limit(10)
-            );
-
-            // Fetch most liked articles
-            const mostLikedQuery = query(
-                collection(db, 'posts'),
-                where('status', '==', 'published'),
-                where('isDeleted', '==', false),
-                orderBy('stats.likes', 'desc'),
-                limit(10)
-            );
-
-            const [mostViewedSnapshot, mostLikedSnapshot] = await Promise.all([
-                getDocs(mostViewedQuery),
-                getDocs(mostLikedQuery)
-            ]);
-
-            const mostViewed = mostViewedSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                publishedAt: doc.data().publishedAt?.toDate(),
-                type: 'viewed'
-            }));
-
-            const mostLiked = mostLikedSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                publishedAt: doc.data().publishedAt?.toDate(),
-                type: 'liked'
-            }));
-
-            // Merge and deduplicate
-            const allPosts = [...mostViewed, ...mostLiked];
-            const uniquePosts = allPosts.filter((post, index, self) =>
-                index === self.findIndex(p => p.id === post.id)
-            );
-
-            // Sort by popularity score (views + likes)
-            const sortedPosts = uniquePosts.sort((a, b) => {
-                const scoreA = (a.stats?.views || 0) + (a.stats?.likes || 0);
-                const scoreB = (b.stats?.views || 0) + (b.stats?.likes || 0);
-                return scoreB - scoreA;
-            });
-
-            setPopularPosts(sortedPosts.slice(0, 6));
-            setTrendingPosts(sortedPosts.slice(0, 10));
+            const data = await fetchPopularArticles(20);
+            const posts = data.posts || [];
+            
+            setPopularPosts(posts);
 
         } catch (err) {
             console.error('Error fetching popular articles:', err);
@@ -91,6 +41,7 @@ export default function PopularArticlesPage() {
     };
 
     const formatNumber = (num) => {
+        if (!num) return 0;
         if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
         if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
         return num;
@@ -131,6 +82,18 @@ export default function PopularArticlesPage() {
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-6 py-12">
+                {error && (
+                    <div className="text-center py-8">
+                        <p className="text-red-500">{error}</p>
+                        <button 
+                            onClick={fetchPopularArticlesData}
+                            className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                )}
+
                 {/* Top Articles Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
                     {popularPosts.slice(0, 2).map((post, index) => (
@@ -163,9 +126,9 @@ export default function PopularArticlesPage() {
                                             <div className="flex items-center gap-4 text-white/80 text-sm">
                                                 <span>{formatDate(post.publishedAt)}</span>
                                                 <span>•</span>
-                                                <span>{formatNumber(post.stats?.views || 0)} views</span>
+                                                <span>{formatNumber(post.viewCount)} views</span>
                                                 <span>•</span>
-                                                <span>{formatNumber(post.stats?.likes || 0)} likes</span>
+                                                <span>{formatNumber(post.likeCount)} likes</span>
                                             </div>
                                         </div>
                                     </div>
@@ -182,7 +145,7 @@ export default function PopularArticlesPage() {
                         Trending Now
                     </h2>
                     <div className="space-y-4">
-                        {trendingPosts.map((post, index) => (
+                        {popularPosts.slice(0, 10).map((post, index) => (
                             <Link
                                 key={post.id}
                                 href={`/blogs/${post.slug || post.id}`}
@@ -198,12 +161,12 @@ export default function PopularArticlesPage() {
                                         <span>•</span>
                                         <span className="flex items-center gap-1">
                                             <Eye size={12} />
-                                            {formatNumber(post.stats?.views || 0)}
+                                            {formatNumber(post.viewCount)}
                                         </span>
                                         <span>•</span>
                                         <span className="flex items-center gap-1">
                                             <Heart size={12} />
-                                            {formatNumber(post.stats?.likes || 0)}
+                                            {formatNumber(post.likeCount)}
                                         </span>
                                     </div>
                                 </div>
@@ -243,11 +206,11 @@ export default function PopularArticlesPage() {
                                             <div className="flex items-center gap-3">
                                                 <span className="flex items-center gap-1">
                                                     <Eye size={12} />
-                                                    {post.stats?.views || 0}
+                                                    {formatNumber(post.viewCount)}
                                                 </span>
                                                 <span className="flex items-center gap-1">
                                                     <Heart size={12} />
-                                                    {post.stats?.likes || 0}
+                                                    {formatNumber(post.likeCount)}
                                                 </span>
                                             </div>
                                         </div>
@@ -257,6 +220,12 @@ export default function PopularArticlesPage() {
                         ))}
                     </div>
                 </div>
+
+                {popularPosts.length === 0 && !loading && (
+                    <div className="text-center py-12">
+                        <p className="text-gray-500">No popular articles found.</p>
+                    </div>
+                )}
 
                 {/* Back to Blog */}
                 <div className="mt-12 text-center">

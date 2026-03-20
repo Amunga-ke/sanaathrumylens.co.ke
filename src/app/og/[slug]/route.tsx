@@ -1,18 +1,18 @@
-// src/app/og/[slug]/route.js
+// src/app/og/[slug]/route.tsx
 import { ImageResponse } from '@vercel/og';
-import { fetchPostBySlug } from '@/lib/serverFirestore';
+import { getPostBySlug } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
 const FONT_SIZE = 56;
 
-export default async function handler(req, { params }) {
+export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
     try {
-        const { slug } = params;
-        const post = await fetchPostBySlug(slug);
+        const { slug } = await params;
+        const post = await getPostBySlug(slug);
 
         const title = post?.title || 'Sanaathrumylens';
-        const author = post?.author?.name || post?.author || process.env.SITE_NAME || 'Sanaathrumylens';
+        const author = post?.author?.name || process.env.NEXT_PUBLIC_SITE_NAME || 'Sanaathrumylens';
         const bg = post?.coverImage || post?.featuredImage || null;
 
         return new ImageResponse(

@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { fetchAuthorBySlug } from "@/lib/db";
 import { SITE_NAME, SITE_URL, DEFAULT_OG_IMAGE } from '@/app/seo/constants';
 import AdsGoogle from '@/components/AdsGoogle';
 
@@ -20,109 +19,22 @@ export default function AuthorProfileClient({ slug }) {
                 setLoading(true);
                 setError(null);
 
-                // Fetch author by slug from Firestore
-                let authorData = null;
-                try {
-                    // Query authors collection by slug
-                    const authorsRef = collection(db, 'authors');
-                    const authorQuery = query(
-                        authorsRef,
-                        where('slug', '==', slug),
-                        where('isActive', '==', true),
-                        limit(1)
-                    );
+                // Fetch author data from API
+                const authorData = await fetchAuthorBySlug(slug);
 
-                    const authorSnapshot = await getDocs(authorQuery);
-
-                    if (!authorSnapshot.empty) {
-                        const authorDoc = authorSnapshot.docs[0];
-                        authorData = {
-                            id: authorDoc.id,
-                            ...authorDoc.data(),
-                            createdAt: authorDoc.data().createdAt?.toDate(),
-                            updatedAt: authorDoc.data().updatedAt?.toDate(),
-                        };
-                    }
-                } catch (err) {
-                    console.warn('Could not fetch author details from Firestore:', err);
-                }
-
-                // If no author found by slug, try by ID (assuming slug might be ID)
                 if (!authorData) {
-                    try {
-                        const authorDocRef = doc(db, 'authors', slug);
-                        const authorDoc = await getDoc(authorDocRef);
-
-                        if (authorDoc.exists() && authorDoc.data().isActive !== false) {
-                            authorData = {
-                                id: authorDoc.id,
-                                ...authorDoc.data(),
-                                createdAt: authorDoc.data().createdAt?.toDate(),
-                                updatedAt: authorDoc.data().updatedAt?.toDate(),
-                            };
-                        }
-                    } catch (err) {
-                        console.warn('Could not fetch author by ID:', err);
-                    }
-                }
-
-                // Fetch posts by this author
-                let authorPosts = [];
-                if (authorData?.id) {
-                    try {
-                        const postsRef = collection(db, 'posts');
-                        const postsQuery = query(
-                            postsRef,
-                            where('authorId', '==', authorData.id),
-                            where('status', '==', 'published'),
-                            where('isDeleted', '==', false),
-                            orderBy('publishedAt', 'desc'),
-                            limit(20)
-                        );
-
-                        const postsSnapshot = await getDocs(postsQuery);
-
-                        // Fetch author details for each post if not already included
-                        authorPosts = await Promise.all(
-                            postsSnapshot.docs.map(async (postDoc) => {
-                                const postData = postDoc.data();
-
-                                // If post doesn't have author snapshot, fetch it
-                                if (!postData.authorSnapshot && authorData) {
-                                    return {
-                                        id: postDoc.id,
-                                        ...postData,
-                                        publishedAt: postData.publishedAt?.toDate(),
-                                        createdAt: postData.createdAt?.toDate(),
-                                        author: authorData
-                                    };
-                                }
-
-                                return {
-                                    id: postDoc.id,
-                                    ...postData,
-                                    publishedAt: postData.publishedAt?.toDate(),
-                                    createdAt: postData.createdAt?.toDate(),
-                                    author: postData.authorSnapshot || authorData
-                                };
-                            })
-                        );
-                    } catch (err) {
-                        console.warn('Could not fetch posts by author:', err);
-                    }
-                }
-
-                // If no author found in Firestore, create a basic author object
-                if (!authorData) {
-                    authorData = {
+                    // If no author found, create a basic author object
+                    setAuthor({
                         name: slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                         slug: slug,
                         bio: ''
-                    };
+                    });
+                    setPosts([]);
+                    return;
                 }
 
                 setAuthor(authorData);
-                setPosts(authorPosts);
+                setPosts(authorData.posts || []);
 
             } catch (err) {
                 console.error('Error fetching author:', err);
@@ -222,7 +134,7 @@ export default function AuthorProfileClient({ slug }) {
                                 <div className="shrink-0 mr-4">
                                     <Image
                                         src={author?.photoURL || DEFAULT_OG_IMAGE}
-                                        alt={author?.name}
+                                        alt={author?.name || 'Author'}
                                         width={80}
                                         height={80}
                                         className="rounded-full"
@@ -265,23 +177,28 @@ export default function AuthorProfileClient({ slug }) {
                         )}
                         {posts.map((post) => (
                             <div key={post.id} className="bg-white dark:bg-slate-800 rounded-lg shadow-md overflow-hidden">
-                                <Link href={`/blogs/${post.id}`} className="block group">
-                                    <div className="relative pb-2/3">
-                                        <Image
-                                            src={post.coverImage}
-                                            alt={post.title}
-                                            fill
-                                            className="absolute inset-0 w-full h-full object-cover rounded-t-lg group-hover:scale-105 transition-transform"
-                                        />
+                                <Link href={`/blogs/${post.slug || post.id}`} className="block group">
+                                    <div className="relative pb-2/3 aspect-video">
+                                        {post.coverImage ? (
+                                            <Image
+                                                src={post.coverImage}
+                                                alt={post.title}
+                                                fill
+                                                className="absolute inset-0 w-full h-full object-cover rounded-t-lg group-hover:scale-105 transition-transform"
+                                                unoptimized
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-400 rounded-t-lg" />
+                                        )}
                                     </div>
                                     <div className="p-4">
                                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2">
                                             {post.title}
                                         </h2>
                                         <div className="flex flex-wrap gap-2 text-sm text-gray-500 dark:text-gray-400">
-                                            <span>{new Date(post.publishedAt).toLocaleDateString()}</span>
+                                            <span>{post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : 'Recent'}</span>
                                             <span>&bull;</span>
-                                            <span>{post.readingTime} min read</span>
+                                            <span>{post.readingTime || 5} min read</span>
                                         </div>
                                     </div>
                                 </Link>

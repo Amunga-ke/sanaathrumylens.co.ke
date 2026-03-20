@@ -65,15 +65,14 @@ export default function Header() {
                     <Link href="/" className="flex items-center gap-3">
                         <div className="w-10 h-10 relative">
                             <Image
-                                src="/logo.png"            // Image path
+                                src="/logo.png"
                                 alt="Logo"
-                                fill                        // Fills parent div
-                                className="object-contain"  // Keep aspect ratio
+                                fill
+                                className="object-contain"
                                 priority={true}
-                                fetchPriority="high"  // Add this
-                                unoptimized                 // Keep if you don't want Next.js optimization
+                                fetchPriority="high"
+                                unoptimized
                             />
-
                         </div>
                         <span className="font-semibold text-gray-800 text-lg">Sanaathrumylens</span>
                     </Link>
@@ -86,15 +85,17 @@ export default function Header() {
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    className={`relative px-3 py-2 text-sm font-medium transition-colors ${active
-                                        ? "text-orange-500"
-                                        : "text-gray-600 hover:text-orange-500"
-                                        }`}
+                                    className={`relative px-3 py-2 text-sm font-medium transition-colors ${
+                                        active
+                                            ? "text-orange-500"
+                                            : "text-gray-600 hover:text-orange-500"
+                                    }`}
                                 >
                                     {item.label}
                                     <span
-                                        className={`absolute left-0 -bottom-1 w-full h-0.5 transition-all ${active ? "bg-orange-500" : "bg-transparent"
-                                            }`}
+                                        className={`absolute left-0 -bottom-1 w-full h-0.5 transition-all ${
+                                            active ? "bg-orange-500" : "bg-transparent"
+                                        }`}
                                     />
                                 </Link>
                             );
@@ -108,11 +109,11 @@ export default function Header() {
                                 >
                                     {user && (
                                         <>
-                                            {getUserAvatar(user).type === "image" ? (
+                                            {user.image ? (
                                                 <div className="w-8 h-8 rounded-full overflow-hidden">
                                                     <Image
-                                                        src={getUserAvatar(user).url}
-                                                        alt={getUserDisplayName(user)}
+                                                        src={user.image}
+                                                        alt={user.name || "User"}
                                                         width={32}
                                                         height={32}
                                                         className="object-cover"
@@ -121,14 +122,13 @@ export default function Header() {
                                                 </div>
                                             ) : (
                                                 <div
-                                                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs text-white font-semibold"
-                                                    style={{ backgroundColor: getUserAvatar(user).backgroundColor }}
+                                                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs text-white font-semibold bg-orange-500"
                                                 >
-                                                    {getUserAvatar(user).initials}
+                                                    {user.name?.charAt(0).toUpperCase() || "U"}
                                                 </div>
                                             )}
                                             <span className="max-w-25 truncate font-medium text-gray-700">
-                                                {getUserDisplayName(user)}
+                                                {user.name || "User"}
                                             </span>
                                         </>
                                     )}
@@ -213,10 +213,11 @@ export default function Header() {
                                         key={item.href}
                                         href={item.href}
                                         onClick={() => setIsOpen(false)}
-                                        className={`block px-4 py-3 rounded-lg text-sm transition ${isActive(item.href, item.exact)
-                                            ? "text-orange-500 bg-orange-50"
-                                            : "text-gray-700 hover:bg-gray-100"
-                                            }`}
+                                        className={`block px-4 py-3 rounded-lg text-sm transition ${
+                                            isActive(item.href, item.exact)
+                                                ? "text-orange-500 bg-orange-50"
+                                                : "text-gray-700 hover:bg-gray-100"
+                                        }`}
                                     >
                                         {item.label}
                                     </Link>
@@ -228,11 +229,11 @@ export default function Header() {
                                 {!loading && isAuthenticated() && user && (
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-3 px-4 py-3">
-                                            {getUserAvatar(user).type === "image" ? (
+                                            {user.image ? (
                                                 <div className="w-10 h-10 rounded-full overflow-hidden">
                                                     <Image
-                                                        src={getUserAvatar(user).url}
-                                                        alt={getUserDisplayName(user)}
+                                                        src={user.image}
+                                                        alt={user.name || "User"}
                                                         width={40}
                                                         height={40}
                                                         className="object-cover"
@@ -241,14 +242,13 @@ export default function Header() {
                                                 </div>
                                             ) : (
                                                 <div
-                                                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm text-white font-semibold"
-                                                    style={{ backgroundColor: getUserAvatar(user).backgroundColor }}
+                                                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm text-white font-semibold bg-orange-500"
                                                 >
-                                                    {getUserAvatar(user).initials}
+                                                    {user.name?.charAt(0).toUpperCase() || "U"}
                                                 </div>
                                             )}
                                             <div>
-                                                <p className="font-medium text-gray-800">{getUserDisplayName(user)}</p>
+                                                <p className="font-medium text-gray-800">{user.name || "User"}</p>
                                             </div>
                                         </div>
 
