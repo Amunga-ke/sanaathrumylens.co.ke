@@ -35,7 +35,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { data: session, status, update } = useSession();
+  // Safely access useSession - may be undefined during SSR/build
+  const sessionHook = useSession?.() ?? { data: null, status: 'loading', update: undefined };
+  const session = sessionHook.data ?? null;
+  const status = sessionHook.status ?? 'loading';
+  const update = sessionHook.update;
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,9 +58,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Helper functions
   const isAuthenticated = () => !!user;
-  const isAdmin = () => user?.role === 'ADMIN';
-  const isEditor = () => user?.role === 'EDITOR' || user?.role === 'ADMIN';
-  const isModerator = () => user?.role === 'MODERATOR' || user?.role === 'EDITOR' || user?.role === 'ADMIN';
+  const isAdmin = () => user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isEditor = () => user?.role === 'EDITOR' || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isModerator = () => user?.role === 'MODERATOR' || user?.role === 'EDITOR' || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const canComment = () => !!user && user.role !== 'BANNED';
   const canModerate = () => isAdmin() || isEditor() || isModerator();
 
@@ -153,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Refresh session
   const refreshSession = useCallback(() => {
-    update();
+    update?.();
   }, [update]);
 
   const value: AuthContextType = {

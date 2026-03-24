@@ -1,7 +1,6 @@
 // User Profile API Route
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { auth } from '@/lib/auth';
 import { 
   updateEditorProfile, 
   checkProfileCompletion, 
@@ -12,7 +11,7 @@ import {
 // GET - Check profile completion status
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -37,7 +36,7 @@ export async function GET(request: NextRequest) {
 // PUT - Update editor profile
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -73,7 +72,7 @@ export async function PUT(request: NextRequest) {
 // POST - Dismiss profile reminder
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

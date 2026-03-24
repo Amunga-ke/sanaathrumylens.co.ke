@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   Home, BookOpen, Calendar, User, Settings, Users, 
-  FileText, Bookmark, ChevronRight 
+  FileText, Bookmark, ChevronRight, Loader2 
 } from 'lucide-react';
 import ProfileCompletionBanner from '@/components/ProfileCompletionBanner';
 
@@ -53,13 +53,23 @@ const navItems = {
 };
 
 export default function DashboardLayout({ children }) {
-    const { user, role } = useAuth();
+    const { user, loading } = useAuth();
     const pathname = usePathname();
+    const role = user?.role || 'USER';
+
+    // Show loading state
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+        );
+    }
 
     // Protect dashboard pages
     if (!user) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
+            <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
                 <p className="text-gray-600 dark:text-gray-400">Please log in to access the dashboard.</p>
             </div>
         );
