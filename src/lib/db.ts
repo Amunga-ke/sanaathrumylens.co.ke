@@ -954,6 +954,230 @@ export const updateUserProfile = async (userId: string, data: { name?: string; b
   }
 }
 
+/**
+ * Update editor profile (with social links)
+ */
+export const updateEditorProfile = async (userId: string, data: {
+  name?: string
+  bio?: string
+  website?: string
+  image?: string
+  twitter?: string
+  instagram?: string
+  linkedin?: string
+  facebook?: string
+}) => {
+  try {
+    // Update user profile
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...data,
+        profileCompleted: true,
+        profileReminderDismissed: false
+      }
+    })
+
+    // If user has author profile, update that too
+    if (user.role === 'EDITOR' || user.role === 'ADMIN' || user.role === 'MODERATOR' || user.role === 'SUPER_ADMIN') {
+      const existingAuthor = await prisma.author.findUnique({
+        where: { userId }
+      })
+
+      if (existingAuthor) {
+        await prisma.author.update({
+          where: { userId },
+          data: {
+            name: data.name || existingAuthor.name,
+            bio: data.bio || existingAuthor.bio,
+            avatar: data.image || existingAuthor.avatar,
+            website: data.website || existingAuthor.website,
+            twitter: data.twitter || existingAuthor.twitter,
+            instagram: data.instagram || existingAuthor.instagram,
+            linkedin: data.linkedin || existingAuthor.linkedin,
+            facebook: data.facebook || existingAuthor.facebook
+          }
+        })
+      }
+    }
+
+    return user
+  } catch (error) {
+    console.error('Error updating editor profile:', error)
+    throw error
+  }
+}
+
+/**
+ * Check if user profile is complete (for editors/admins/moderators)
+ */
+export const checkProfileCompletion = async (userId: string): Promise<{
+  isComplete: boolean
+  missingFields: string[]
+  requiredFields: string[]
+}> => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        role: true,
+        name: true,
+        bio: true,
+        image: true,
+        profileCompleted: true
+      }
+    })
+
+    if (!user) {
+      return { isComplete: false, missingFields: ['User not found'], requiredFields: [] }
+    }
+
+    // Only editors/admins/moderators need to complete profile
+    const needsProfile = ['EDITOR', 'ADMIN', 'MODERATOR', 'SUPER_ADMIN'].includes(user.role)
+    
+    if (!needsProfile) {
+      return { isComplete: true, missingFields: [], requiredFields: [] }
+    }
+
+    const requiredFields = ['name', 'bio', 'image']
+    const missingFields: string[] = []
+
+    if (!user.name || user.name.trim() === '') missingFields.push('name')
+    if (!user.bio || user.bio.trim() === '') missingFields.push('bio')
+    if (!user.image) missingFields.push('profile image')
+
+    return {
+      isComplete: missingFields.length === 0,
+      missingFields,
+      requiredFields
+    }
+  } catch (error) {
+    console.error('Error checking profile completion:', error)
+    throw error
+  }
+}
+
+/**
+ * Elevate user role (admin action)
+ */
+export const elevateUserRole = async (
+  targetUserId: string, 
+  newRole: 'EDITOR' | 'MODERATOR' | 'ADMIN' | 'SUPER_ADMIN',
+  adminId: string
+) => {
+  try {
+    // Verify admin has permission
+    const admin = await prisma.user.findUnique({
+      where: { id: adminId },
+      select: { role: true }
+    })
+
+    if (!admin || !['ADMIN', 'SUPER_ADMIN'].includes(admin.role)) {
+      return { success: false, message: 'Insufficient permissions' }
+    }
+
+    // Get target user
+    const targetUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, name: true, email: true, role: true }
+    })
+
+    if (!targetUser) {
+      return { success: false, message: 'User not found' }
+    }
+
+    // Update user role
+    const updatedUser = await prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        role: newRole as any,
+        roleElevatedAt: new Date(),
+        profileCompleted: false,
+        profileReminderDismissed: false
+      }
+    })
+
+    // Create author profile if doesn't exist
+    const existingAuthor = await prisma.author.findUnique({
+      where: { userId: targetUserId }
+    })
+
+    if (!existingAuthor) {
+      // Generate slug from name or email
+      const baseSlug = targetUser.name?.toLowerCase().replace(/\s+/g, '-') || targetUser.email.split('@')[0]
+      let slug = baseSlug
+      let counter = 1
+
+      // Ensure unique slug
+      while (await prisma.author.findUnique({ where: { slug } })) {
+        slug = `${baseSlug}-${counter}`
+        counter++
+      }
+
+      await prisma.author.create({
+        data: {
+          name: targetUser.name || targetUser.email.split('@')[0],
+          slug,
+          userId: targetUserId,
+          isPublic: true
+        }
+      })
+    }
+
+    return { success: true, user: updatedUser }
+  } catch (error) {
+    console.error('Error elevating user role:', error)
+    return { success: false, message: 'Failed to elevate user role' }
+  }
+}
+
+/**
+ * Dismiss profile completion reminder
+ */
+export const dismissProfileReminder = async (userId: string) => {
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { profileReminderDismissed: true }
+    })
+    return { success: true }
+  } catch (error) {
+    console.error('Error dismissing profile reminder:', error)
+    return { success: false }
+  }
+}
+
+/**
+ * Get users by role
+ */
+export const getUsersByRole = cache(async (role: string) => {
+  try {
+    return await prisma.user.findMany({
+      where: { role: role as any },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        bio: true,
+        website: true,
+        twitter: true,
+        instagram: true,
+        linkedin: true,
+        facebook: true,
+        profileCompleted: true,
+        roleElevatedAt: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+  } catch (error) {
+    console.error('Error fetching users by role:', error)
+    throw error
+  }
+})
+
 // ==================== ALIASES FOR API ROUTES ====================
 
 /**

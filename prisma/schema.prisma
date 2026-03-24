@@ -23,9 +23,20 @@ model User {
   // Role (single role per user for MySQL compatibility)
   role          Role      @default(USER)
   
-  // Profile fields
+  // Profile fields (expanded for editors/authors)
   bio           String?   @db.Text
   website       String?
+  
+  // Social media links (for editors/authors)
+  twitter       String?
+  instagram     String?
+  linkedin      String?
+  facebook      String?
+  
+  // Profile completion tracking
+  profileCompleted    Boolean   @default(false)
+  roleElevatedAt      DateTime?   // When user was elevated to EDITOR/MODERATOR/ADMIN
+  profileReminderDismissed  Boolean @default(false)  // User dismissed the banner temporarily
   
   // Stats
   bookmarksCount Int      @default(0)
@@ -49,6 +60,7 @@ model User {
   author        Author?
   
   @@index([email])
+  @@index([role])
   @@map("users")
 }
 
@@ -98,6 +110,7 @@ enum Role {
   EDITOR
   MODERATOR
   ADMIN
+  SUPER_ADMIN
   BANNED
 }
 
